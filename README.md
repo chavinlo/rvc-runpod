@@ -6,4 +6,4 @@ Information on how to use it is available at [howto.md](howto.md)
 
 Works with S3 and transfer.sh
 
-# AGPL v3 License
+# AGPL v3 Licensed
