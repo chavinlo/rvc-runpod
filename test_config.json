@@ -1,16 +1,16 @@
 {
     "input": {   
         "arguments": {
-            "audio_url": "https://transfer.sh/vtywXDR5SP/downdmrd.mp3",
+            "audio_url": "https://cdn.discordapp.com/attachments/1128020045948272640/1128631615355105280/Berg_More_Than_I_Am_Lead_Vox_mp3.mp3",
             "model_name": "sail-rvc/example",
             "transpose": 0,
-            "pitch_extraction_algorithm": "pm",
-            "search_feature_ratio": 0.2,
-            "filter_radius": 2,
+            "pitch_extraction_algorithm": "crepe",
+            "search_feature_ratio": 0.76,
+            "filter_radius": 3,
             "resample_output": 0,
-            "volume_envelope": 0.05,
+            "volume_envelope": 0.25,
             "voiceless_protection": 0.1,
-            "hop_len": 256
+            "hop_len": 128
         },
     "operation": "infer"
     }

@@ -2,7 +2,6 @@ from gradio_client import Client
 import runpod
 import os
 import time
-import magic
 import uuid
 from threading import Thread
 import requests
@@ -10,10 +9,6 @@ import boto3
 from botocore.client import Config
 from modelmanager import model_manager
 
-RVC_REPO_DIR = "/rvc_repo"
-RVC_MODEL_DIR = "/rvc_repo/weights"
-
-INDEX_APPEND_PATH = "added_IVF1653_Flat_nprobe_1_v2.index"
 IGNORE_PATH = "/stub"
 
 GOTO_ROOT = "/../../../../../../../"
@@ -39,7 +34,6 @@ def success(msg):
 class rvc_serverless_pipe():
     def __init__(self):
         self.client = None
-        self.mime = magic.Magic(mime=True)
         self.model_manager = model_manager()
 
     def prepare(self):
