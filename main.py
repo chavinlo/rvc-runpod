@@ -13,11 +13,18 @@ IGNORE_PATH = "/stub"
 
 GOTO_ROOT = "/../../../../../../../"
 
-BUCKET_AREA = os.environ.get("BUCKET_AREA", None)
-BUCKET_ENDPOINT_URL = os.environ.get("BUCKET_ENDPOINT_URL", None)
-BUCKET_ACCESS_KEY_ID = os.environ.get("BUCKET_ACCESS_KEY_ID", None)
-BUCKET_SECRET_ACCESS_KEY = os.environ.get("BUCKET_SECRET_ACCESS_KEY", None)
-BUCKET_NAME = BUCKET_ENDPOINT_URL.split("//")[-1].split(".")[0]
+UPLOAD_MODE = os.environ.get("UPLOAD_MODE", None)
+
+if UPLOAD_MODE == "transfersh":
+    from transfersh_client.app import send_to_transfersh
+elif UPLOAD_MODE == "s3":
+    BUCKET_AREA = os.environ.get("BUCKET_AREA", None)
+    BUCKET_ENDPOINT_URL = os.environ.get("BUCKET_ENDPOINT_URL", None)
+    BUCKET_ACCESS_KEY_ID = os.environ.get("BUCKET_ACCESS_KEY_ID", None)
+    BUCKET_SECRET_ACCESS_KEY = os.environ.get("BUCKET_SECRET_ACCESS_KEY", None)
+    BUCKET_NAME = BUCKET_ENDPOINT_URL.split("//")[-1].split(".")[0]
+else:
+    raise Exception("UPLOAD_MODE not found")
 
 def error(msg):
     return {
@@ -45,25 +52,26 @@ class rvc_serverless_pipe():
         with open(IGNORE_PATH, "w") as f:
             f.write("stub")
 
-        session = boto3.Session(
-            aws_access_key_id=BUCKET_ACCESS_KEY_ID,
-            aws_secret_access_key=BUCKET_SECRET_ACCESS_KEY,
-            region_name=BUCKET_AREA
-        )
+        if UPLOAD_MODE == "s3":
+            session = boto3.Session(
+                aws_access_key_id=BUCKET_ACCESS_KEY_ID,
+                aws_secret_access_key=BUCKET_SECRET_ACCESS_KEY,
+                region_name=BUCKET_AREA
+            )
 
-        s3 = session.client('s3',
-            endpoint_url=BUCKET_ENDPOINT_URL,
-            config=Config(signature_version='s3v4', region_name=BUCKET_AREA)
-        )
+            s3 = session.client('s3',
+                endpoint_url=BUCKET_ENDPOINT_URL,
+                config=Config(signature_version='s3v4', region_name=BUCKET_AREA)
+            )
 
-        self.s3 = s3
+            self.s3 = s3
 
-        print("AWS BUCKET CONFIGURATION:")
-        print(f"BUCKET_AREA: {BUCKET_AREA}")
-        print(f"BUCKET_ENDPOINT_URL: {BUCKET_ENDPOINT_URL}")
-        print(f"BUCKET_ACCESS_KEY_ID: {BUCKET_ACCESS_KEY_ID[:4]}...{BUCKET_ACCESS_KEY_ID[-4:]}")
-        print(f"BUCKET_SECRET_ACCESS_KEY: {BUCKET_SECRET_ACCESS_KEY[:4]}...{BUCKET_SECRET_ACCESS_KEY[-4:]}")
-        print(f"BUCKET_NAME: {BUCKET_NAME}")
+            print("AWS BUCKET CONFIGURATION:")
+            print(f"BUCKET_AREA: {BUCKET_AREA}")
+            print(f"BUCKET_ENDPOINT_URL: {BUCKET_ENDPOINT_URL}")
+            print(f"BUCKET_ACCESS_KEY_ID: {BUCKET_ACCESS_KEY_ID[:4]}...{BUCKET_ACCESS_KEY_ID[-4:]}")
+            print(f"BUCKET_SECRET_ACCESS_KEY: {BUCKET_SECRET_ACCESS_KEY[:4]}...{BUCKET_SECRET_ACCESS_KEY[-4:]}")
+            print(f"BUCKET_NAME: {BUCKET_NAME}")
 
         # start gradio in bg with thread
         def start_gradio():
@@ -162,8 +170,6 @@ class rvc_serverless_pipe():
         # model_name
         if not isinstance(arguments["model_name"], str):
             return error("model_name must be str")
-        if arguments["model_name"] not in self.list_models():
-            return error("Model not found")
         
         return None
 
@@ -245,41 +251,35 @@ class rvc_serverless_pipe():
         #os.remove(out_audio_path)
         os.remove(inp_audio_path)
 
-        s3 = self.s3
+        if UPLOAD_MODE == "s3":
+            s3 = self.s3
 
-        with open(out_audio_path, 'rb') as data:
-            s3.upload_fileobj(data, BUCKET_NAME, f"{work_uuid}.{ext}")
-            
-        presigned_url = s3.generate_presigned_url(
-            'get_object',
-            Params={
-                'Bucket': BUCKET_NAME,
-                'Key': f"{work_uuid}.{ext}"
-                }
-        )
+            with open(out_audio_path, 'rb') as data:
+                s3.upload_fileobj(data, BUCKET_NAME, f"{work_uuid}.{ext}")
+                
+            presigned_url = s3.generate_presigned_url(
+                'get_object',
+                Params={
+                    'Bucket': BUCKET_NAME,
+                    'Key': f"{work_uuid}.{ext}"
+                    }
+            )
 
-        audio_url = presigned_url
-        
+            audio_url = presigned_url
+        elif UPLOAD_MODE == "transfersh":
+            audio_url = send_to_transfersh(out_audio_path, clipboard=False)
+
         os.remove(out_audio_path)
 
         return success({
             "success_message": success_message,
-            "audio_path": out_audio_path,
             "audio_url": audio_url
         })
 
     def handler(self, event):
         request = event['input']
 
-        operation = request['operation']
-        arguments = request['arguments']
-
-        if operation == "list_models":
-            return self.list_models()
-        elif operation == "infer":
-            return self.infer(request)
-        else:
-            return error("Unknown operation")
+        return self.infer(request)
 
 def main():
     pipeline = rvc_serverless_pipe()

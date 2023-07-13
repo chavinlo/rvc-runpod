@@ -9,7 +9,7 @@ RUN git clone https://github.com/Mangio621/Mangio-RVC-Fork rvc_repo
 
 WORKDIR /rvc_repo
 
-RUN make install && make basev1
+RUN make install && make basev2
 
 WORKDIR /
 
@@ -23,3 +23,6 @@ COPY main.py /rvc_serverless/main.py
 COPY test.py /rvc_serverless/test.py
 COPY test_input.json /rvc_serverless/000_test_input.json
 COPY modelmanager.py /rvc_serverless/modelmanager.py
+COPY requirements.txt /rvc_serverless/requirements.txt
+
+RUN pip install -r /rvc_serverless/requirements.txt

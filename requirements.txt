@@ -1,0 +1,5 @@
+transfersh_client
+gradio
+runpod
+boto3
+requests
