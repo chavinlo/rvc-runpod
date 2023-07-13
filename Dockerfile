@@ -21,5 +21,5 @@ COPY swap/infer-web.py /rvc_repo/infer-web.py
 RUN mkdir /rvc_serverless
 COPY main.py /rvc_serverless/main.py
 COPY test.py /rvc_serverless/test.py
-COPY test_config.json /rvc_serverless/test_config.json
+COPY test_input.json /rvc_serverless/000_test_input.json
 COPY modelmanager.py /rvc_serverless/modelmanager.py
