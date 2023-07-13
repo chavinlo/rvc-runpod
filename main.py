@@ -268,6 +268,7 @@ class rvc_serverless_pipe():
             audio_url = presigned_url
         elif UPLOAD_MODE == "transfersh":
             audio_url = send_to_transfersh(out_audio_path, clipboard=False)
+            audio_url = audio_url.replace("\n", "").replace("transfer.sh", "transfer.sh/get")
 
         os.remove(out_audio_path)
 

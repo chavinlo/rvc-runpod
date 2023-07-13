@@ -1,4 +1,7 @@
 transfersh_client
+pyperclip
+twine
+wget
 gradio
 runpod
 boto3
