@@ -8,6 +8,7 @@ from threading import Thread
 import requests
 import boto3
 from botocore.client import Config
+from modelmanager import model_manager
 
 RVC_REPO_DIR = "/rvc_repo"
 RVC_MODEL_DIR = "/rvc_repo/weights"
@@ -15,28 +16,31 @@ RVC_MODEL_DIR = "/rvc_repo/weights"
 INDEX_APPEND_PATH = "added_IVF1653_Flat_nprobe_1_v2.index"
 IGNORE_PATH = "/stub"
 
+GOTO_ROOT = "/../../../../../../../"
+
 BUCKET_AREA = os.environ.get("BUCKET_AREA", None)
 BUCKET_ENDPOINT_URL = os.environ.get("BUCKET_ENDPOINT_URL", None)
 BUCKET_ACCESS_KEY_ID = os.environ.get("BUCKET_ACCESS_KEY_ID", None)
 BUCKET_SECRET_ACCESS_KEY = os.environ.get("BUCKET_SECRET_ACCESS_KEY", None)
 BUCKET_NAME = BUCKET_ENDPOINT_URL.split("//")[-1].split(".")[0]
 
+def error(msg):
+    return {
+        "statusCode": 400,
+        "body": msg
+    }
+
+def success(msg):
+    return {
+        "statusCode": 200,
+        "body": msg
+    }
+
 class rvc_serverless_pipe():
     def __init__(self):
         self.client = None
         self.mime = magic.Magic(mime=True)
-
-    def error(self, msg):
-        return {
-            "statusCode": 400,
-            "body": msg
-        }
-
-    def success(self, msg):
-        return {
-            "statusCode": 200,
-            "body": msg
-        }
+        self.model_manager = model_manager()
 
     def prepare(self):
         """
@@ -94,83 +98,78 @@ class rvc_serverless_pipe():
             attempts += 1
 
         raise Exception("Cannot connect to gradio API")
-    
-    def list_models(self):
-        os.listdir(RVC_MODEL_DIR)
-        # remove .pth extension
-        return [x[:-4] for x in os.listdir(RVC_MODEL_DIR)]
 
     def infer_args_parse(self, arguments):
         if "audio_url" not in arguments:
-            return self.error("audio_url not found")
+            return error("audio_url not found")
         if "model_name" not in arguments:
-            return self.error("model_name not found")
+            return error("model_name not found")
         if "transpose" not in arguments:
-            return self.error("transpose not found")
+            return error("transpose not found")
         if "pitch_extraction_algorithm" not in arguments:
-            return self.error("pitch_extraction_algorithm not found")
+            return error("pitch_extraction_algorithm not found")
         if "search_feature_ratio" not in arguments:
-            return self.error("search_feature_ratio not found")
+            return error("search_feature_ratio not found")
         if "filter_radius" not in arguments:
-            return self.error("filter_radius not found")
+            return error("filter_radius not found")
         if "resample_output" not in arguments:
-            return self.error("resample_output not found")
+            return error("resample_output not found")
         if "volume_envelope" not in arguments:
-            return self.error("volume_envelope not found")
+            return error("volume_envelope not found")
         if "voiceless_protection" not in arguments:
-            return self.error("voiceless_protection not found")
+            return error("voiceless_protection not found")
         if "hop_len" not in arguments:
-            return self.error("hop_len not found")
+            return error("hop_len not found")
         
         # transpose
         if not isinstance(arguments["transpose"], int):
-            return self.error("transpose must be int")
+            return error("transpose must be int")
         
         # pitch_extraction_algorithm
         if arguments["pitch_extraction_algorithm"] not in ["pm", "harvest", 'dio', 'crepe', 'crepe-tiny', 'mangio-crepe', 'mangio-crepe-tiny']:
-            return self.error("pitch_extraction_algorithm not found")
+            return error("pitch_extraction_algorithm not found")
         
         # search_feature_ratio
         if not isinstance(arguments["search_feature_ratio"], float):
-            return self.error("search_feature_ratio must be float")
+            return error("search_feature_ratio must be float")
         if arguments['search_feature_ratio'] < 0 or arguments['search_feature_ratio'] > 1:
-            return self.error("search_feature_ratio must be between 0 and 1")
+            return error("search_feature_ratio must be between 0 and 1")
         
         # filter_radius
         if not isinstance(arguments["filter_radius"], int):
-            return self.error("filter_radius must be int")
+            return error("filter_radius must be int")
         if arguments['filter_radius'] < 0 or arguments['filter_radius'] > 7:
-            return self.error("filter_radius must be between 0 and 7")
+            return error("filter_radius must be between 0 and 7")
         
         # resample_output
         if not isinstance(arguments["resample_output"], int):
-            return self.error("resample_output must be int")
+            return error("resample_output must be int")
         if arguments['resample_output'] < 0 or arguments['resample_output'] > 48000:
-            return self.error("resample_output must be between 0 and 48000")
+            return error("resample_output must be between 0 and 48000")
         
         # volume_envelope
         if not isinstance(arguments["volume_envelope"], float):
-            return self.error("volume_envelope must be float")
+            return error("volume_envelope must be float")
         if arguments['volume_envelope'] < 0 or arguments['volume_envelope'] > 1:
-            return self.error("volume_envelope must be between 0 and 1")
+            return error("volume_envelope must be between 0 and 1")
         
         # voiceless_protection
         if not isinstance(arguments["voiceless_protection"], float):
-            return self.error("voiceless_protection must be float")
+            return error("voiceless_protection must be float")
         if arguments['voiceless_protection'] < 0 or arguments['voiceless_protection'] > 1:
-            return self.error("voiceless_protection must be between 0 and 1")
+            return error("voiceless_protection must be between 0 and 1")
         
         # hop_len
         if not isinstance(arguments["hop_len"], int):
-            return self.error("hop_len must be int")
+            return error("hop_len must be int")
         if arguments['hop_len'] < 0 or arguments['hop_len'] > 512:
-            return self.error("hop_len must be between 0 and 512")
+            return error("hop_len must be between 0 and 512")
         
         # model_name
         if not isinstance(arguments["model_name"], str):
-            return self.error("model_name must be str")
+            return error("model_name must be str")
         if arguments["model_name"] not in self.list_models():
-            return self.error("Model not found")
+            return error("Model not found")
         
         return None
 
@@ -210,8 +209,17 @@ class rvc_serverless_pipe():
         # prepare model
         model_name = arguments['model_name']
 
+        mm_response = self.model_manager.get_model(model_name)
+
+        if mm_response['statusCode'] != 200:
+            return mm_response
+        else:
+            # NOTE: we shouldn't do this, but I rather not touch the garbage that is gradio
+            pth_path = GOTO_ROOT + mm_response['body']['pth_path']
+            index_path = GOTO_ROOT + mm_response['body']['index_path']
+
         client.predict(
-                f"{model_name}.pth",
+                pth_path,
                 0,
                 0,
                 fn_index=5,
@@ -224,7 +232,7 @@ class rvc_serverless_pipe():
             arguments["transpose"],
             IGNORE_PATH,
             arguments["pitch_extraction_algorithm"],
-            f"logs/{model_name}/{INDEX_APPEND_PATH}",
+            index_path,
             IGNORE_PATH,
             arguments["search_feature_ratio"],
             arguments["filter_radius"],
@@ -260,7 +268,7 @@ class rvc_serverless_pipe():
         
         os.remove(out_audio_path)
 
-        return self.success({
+        return success({
             "success_message": success_message,
             "audio_path": out_audio_path,
             "audio_url": audio_url
@@ -277,7 +285,7 @@ class rvc_serverless_pipe():
         elif operation == "infer":
             return self.infer(request)
         else:
-            return self.error("Unknown operation")
+            return error("Unknown operation")
 
 def main():
     pipeline = rvc_serverless_pipe()
