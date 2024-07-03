@@ -14,7 +14,7 @@ RUN make install && make basev2
 WORKDIR /
 
 RUN apt install -y wget curl unzip
-RUN pip install --upgrade runpod python-magic gradio
+RUN pip install --upgrade python-magic
 
 COPY swap/infer-web.py /rvc_repo/infer-web.py
 
@@ -25,4 +25,4 @@ COPY test_input.json /rvc_serverless/000_test_input.json
 COPY modelmanager.py /rvc_serverless/modelmanager.py
 COPY requirements.txt /rvc_serverless/requirements.txt
 
-RUN pip install -r /rvc_serverless/requirements.txt
+RUN pip install --upgrade -r /rvc_serverless/requirements.txt
