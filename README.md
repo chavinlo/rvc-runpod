@@ -5,5 +5,3 @@ This is a simple RVC Serverless Endpoint for Runpod built upon Mangio-RVC-Fork a
 Information on how to use it is available at [howto.md](howto.md)
 
 Works with S3 and transfer.sh
-
-# BY-NC-ND LICENSED
