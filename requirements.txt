@@ -4,5 +4,6 @@ twine==4.0.2
 wget
 gradio==3.36.1
 runpod==0.10.0
+torchcrepe==0.0.18
 boto3
 requests
